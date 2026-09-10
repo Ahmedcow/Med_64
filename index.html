@@ -241,6 +241,10 @@ function renderExamSetup(){
       <div class="field"><label>Category</label><select id="examCategory"><option value="">All categories</option>${getCategories().map(c=>`<option>${esc(c)}</option>`).join('')}</select></div>
       <div class="field"><label>Number of questions</label><input id="examCount" type="number" min="1" value="${Math.min(20,bank.length||1)}"></div>
       <div class="field"><label>Time limit (minutes, 0 = unlimited)</label><input id="examMinutes" type="number" min="0" value="0"></div>
+      <div class="field"><label>Answer display</label><select id="answerMode">
+        <option value="immediate" ${settings.showAnswerImmediately?'selected':''}>Show answer immediately after selection</option>
+        <option value="finish" ${!settings.showAnswerImmediately?'selected':''}>Show answers after finishing</option>
+      </select></div>
     </div>
     <div style="margin-top:14px" class="actions">
       <button class="btn primary" onclick="startExam()">Start Exam</button>
@@ -249,7 +253,7 @@ function renderExamSetup(){
   </div>
   <div class="card" style="margin-top:16px">
     <strong>Exam behavior</strong>
-    <p class="mini">Questions are loaded from the current GitHub bank. Your answers update section/category progress and accuracy immediately when the exam is submitted.</p>
+    <p class="mini">Questions are loaded from the current GitHub bank. Each question accepts exactly one selected answer. Choose whether the correct answer is revealed immediately after selection or only after the exam is finished. Your section/category progress and accuracy update when the exam is submitted.</p>
   </div>`;
   document.getElementById('app').innerHTML=layout('Start Exam','Choose exactly what you want to practice.',body);
 }
@@ -260,14 +264,16 @@ function updateExamCategories(){
 function startExam(customList=null){
   if(!bank.length){toast('No questions are loaded. Refresh from GitHub first.','error');return;}
   let list=customList||[...bank];
+  let answerMode=settings.showAnswerImmediately?'immediate':'finish';
   if(!customList){
     const s=document.getElementById('examSection').value,c=document.getElementById('examCategory').value,n=Math.max(1,Number(document.getElementById('examCount').value)||1);
+    answerMode=document.getElementById('answerMode').value;
     list=list.filter(q=>(!s||q.section===s)&&(!c||q.category===c));
     if(!list.length){toast('No questions match those filters.','error');return;}
     if(settings.shuffleQuestions) shuffle(list);
     list=list.slice(0,Math.min(n,list.length));
   }
-  exam={list,index:0,answers:{},started:Date.now(),minutes:customList?0:(Number(document.getElementById('examMinutes').value)||0),submitted:false};
+  exam={list,index:0,answers:{},started:Date.now(),minutes:customList?0:(Number(document.getElementById('examMinutes').value)||0),answerMode,submitted:false};
   if(exam.minutes>0) startTimer(exam.minutes*60);
   renderQuiz();
 }
@@ -299,13 +305,27 @@ function renderQuiz(){
   document.getElementById('app').innerHTML=layout('Exam','Answer the question and continue.',body);
 }
 function chooseAnswer(i){
-  const q=exam.list[exam.index];exam.answers[q.id]=i;
-  if(settings.showAnswerImmediately){
-    const buttons=document.querySelectorAll('.option');
-    buttons.forEach((b,j)=>{b.disabled=true;if(j===q.correctIndex)b.classList.add('correct');if(j===i&&i!==q.correctIndex)b.classList.add('wrong');});
-    const box=document.createElement('div');box.className='review '+(i===q.correctIndex?'good':'bad');box.innerHTML=`<b>${i===q.correctIndex?'Correct':'Incorrect'}</b><br>${esc(q.explanation||'No explanation provided.')}`;
+  if(!exam||exam.submitted)return;
+  const q=exam.list[exam.index];
+  if(exam.answerMode==='immediate' && exam.answers[q.id]!==undefined)return;
+
+  // Exactly one answer is stored. A new selection replaces the previous one.
+  exam.answers[q.id]=i;
+
+  const buttons=document.querySelectorAll('.option');
+  buttons.forEach((b,j)=>b.classList.toggle('selected',j===i));
+
+  if(exam.answerMode==='immediate'){
+    buttons.forEach((b,j)=>{
+      b.disabled=true;
+      if(j===q.correctIndex)b.classList.add('correct');
+      if(j===i&&i!==q.correctIndex)b.classList.add('wrong');
+    });
+    const box=document.createElement('div');
+    box.className='review '+(i===q.correctIndex?'good':'bad');
+    box.innerHTML=`<b>${i===q.correctIndex?'Correct':'Incorrect'}</b><br>Correct answer: <b>${esc(q.options[q.correctIndex])}</b><br>${esc(q.explanation||'No explanation provided.')}`;
     document.querySelector('.options').after(box);
-  }else renderQuiz();
+  }
 }
 function nextQ(){if(exam.index<exam.list.length-1){exam.index++;renderQuiz();}}
 function prevQ(){if(exam.index>0){exam.index--;renderQuiz();}}
@@ -416,7 +436,7 @@ function downloadBlob(text,name,type){const a=document.createElement('a');a.href
 
 function renderSettings(){
   const body=`<div class="card"><h3 style="margin-top:0">Exam settings</h3>
-  <label><input type="checkbox" id="sImmediate" ${settings.showAnswerImmediately?'checked':''}> Show correct answer immediately</label><br><br>
+  <label><input type="checkbox" id="sImmediate" ${settings.showAnswerImmediately?'checked':''}> Use “Show answer immediately” as the default exam mode</label><br><br>
   <label><input type="checkbox" id="sAuto" ${settings.autoSubmit?'checked':''}> Auto-submit when timer reaches zero</label><br><br>
   <label><input type="checkbox" id="sShuffleQ" ${settings.shuffleQuestions?'checked':''}> Shuffle questions when starting an exam</label><br><br>
   <label><input type="checkbox" id="sShuffleO" ${settings.shuffleOptions?'checked':''}> Shuffle options (disabled by default)</label>
