@@ -4,7 +4,8 @@
     "pharmacology.json",
     "cardiology.json",
     "para3.json",
-    "pharma25.json"
+    "pharma25.json",
+    "Histo2mss.json"
   ],
   "note": "Add more JSON filenames here when you add question files to this folder."
 }
