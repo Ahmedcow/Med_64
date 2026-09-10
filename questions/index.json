@@ -2,7 +2,9 @@
   "version": 1,
   "files": [
     "pharmacology.json",
-    "cardiology.json"
+    "cardiology.json",
+    "para3.json",
+    "pharma25.json"
   ],
   "note": "Add more JSON filenames here when you add question files to this folder."
 }
