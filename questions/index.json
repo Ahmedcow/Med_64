@@ -1,1 +1,8 @@
-
+{
+  "version": 1,
+  "files": [
+    "pharmacology.json",
+    "cardiology.json"
+  ],
+  "note": "Add more JSON filenames here when you add question files to this folder."
+}
